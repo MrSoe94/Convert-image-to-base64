@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konverter Gambar ke Base64</title>
+    <!-- Memuat Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Mengatur font Inter */
+        body { font-family: 'Inter', sans-serif; }
+        /* Styling untuk textarea agar Base64 mudah dibaca */
+        #base64-output {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.85rem;
+            line-height: 1.25;
+            min-height: 200px;
+        }
+        /* Custom file input styling */
+        .file-input-label {
+            cursor: pointer;
+            padding: 1rem 1.5rem;
+            border: 2px dashed #93c5fd; /* Blue-300 */
+            border-radius: 0.5rem;
+            text-align: center;
+            transition: all 0.2s;
+            background-color: #f7f7f7;
+            color: #3b82f6; /* Blue-500 */
+            font-weight: 600;
+        }
+        .file-input-label:hover {
+            background-color: #eff6ff; /* Blue-50 */
+            border-color: #60a5fa; /* Blue-400 */
+        }
+        #image-input {
+            display: none; /* Sembunyikan input asli */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 sm:p-8 min-h-screen flex items-start justify-center">
+
+<div class="container w-full max-w-4xl bg-white p-6 sm:p-10 rounded-xl shadow-2xl border border-gray-200">
+    
+    <header class="text-center mb-8">
+        <h1 class="text-3xl sm:text-4xl font-extrabold text-gray-800 mb-2">
+            🖼️ Image to Base64 Converter
+        </h1>
+        <p class="text-gray-500">Unggah file gambar untuk mendapatkan Data URL Base64 instan.</p>
+    </header>
+
+    <!-- Bagian Unggah File -->
+    <div class="mb-8">
+        <label for="image-input" class="file-input-label">
+            <svg class="w-6 h-6 inline-block mr-2 align-text-bottom" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+            <span id="file-status">Klik untuk memilih atau seret & lepas gambar di sini (JPG, PNG, GIF)</span>
+        </label>
+        <input type="file" id="image-input" accept="image/*" class="w-full">
+    </div>
+
+    <!-- Bagian Output -->
+    <div id="output-area" class="space-y-6 hidden">
+        
+        <h2 class="text-xl font-semibold text-gray-700 border-b pb-2">Hasil Konversi</h2>
+
+        <!-- Pratinjau Gambar -->
+        <div class="p-4 bg-gray-50 rounded-lg border">
+            <label class="block text-sm font-medium text-gray-700 mb-3">Pratinjau Gambar Base64:</label>
+            <div class="flex justify-center items-center p-4 bg-white border border-dashed border-gray-300 rounded-md">
+                <img id="image-preview" class="max-w-full h-auto max-h-64 object-contain rounded-md shadow-md" alt="Pratinjau Gambar Base64" src="">
+            </div>
+        </div>
+        
+        <!-- Base64 String -->
+        <div>
+            <div class="flex justify-between items-center mb-2">
+                <label for="base64-output" class="block text-sm font-medium text-gray-700">String Base64 Data URL Lengkap:</label>
+                <button onclick="copyToClipboard('base64-output')" 
+                        class="px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full hover:bg-green-600 transition duration-150 shadow-md">
+                    Salin Base64
+                </button>
+            </div>
+            <textarea id="base64-output" readonly placeholder="String Base64 akan muncul setelah Anda memilih gambar..." 
+                      class="resize-none border border-gray-300 rounded-lg w-full focus:ring-blue-500 focus:border-blue-500 p-3"></textarea>
+        </div>
+
+    </div>
+
+    <!-- Pesan Pemberitahuan (Modal/Alert Custom) -->
+    <div id="message-box" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center p-4" onclick="closeMessage()">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-sm w-full" onclick="event.stopPropagation()">
+            <h3 id="message-title" class="text-lg font-bold mb-2 text-gray-800"></h3>
+            <p id="message-content" class="text-gray-600 mb-4"></p>
+            <button onclick="closeMessage()" class="w-full py-2 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition">Tutup</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Ambil elemen DOM
+    const fileInput = document.getElementById('image-input');
+    const base64Output = document.getElementById('base64-output');
+    const imagePreview = document.getElementById('image-preview');
+    const fileStatus = document.getElementById('file-status');
+    const outputArea = document.getElementById('output-area');
+    const messageBox = document.getElementById('message-box');
+    const messageTitle = document.getElementById('message-title');
+    const messageContent = document.getElementById('message-content');
+
+    /**
+     * Menampilkan pesan alert kustom
+     * @param {string} title Judul pesan
+     * @param {string} content Isi pesan
+     */
+    function showMessage(title, content) {
+        messageTitle.textContent = title;
+        messageContent.textContent = content;
+        messageBox.classList.remove('hidden');
+        messageBox.classList.add('flex');
+    }
+
+    /** Menutup pesan alert kustom */
+    function closeMessage() {
+        messageBox.classList.remove('flex');
+        messageBox.classList.add('hidden');
+    }
+
+    /**
+     * Menyalin teks dari elemen textarea ke clipboard.
+     * @param {string} elementId ID dari elemen textarea
+     */
+    function copyToClipboard(elementId) {
+        const copyText = document.getElementById(elementId);
+        
+        // Pilih teks
+        copyText.select();
+        copyText.setSelectionRange(0, 99999); // Untuk perangkat mobile
+
+        try {
+            // Jalankan perintah salin
+            document.execCommand('copy');
+            showMessage("Berhasil!", "String Base64 telah disalin ke clipboard.");
+        } catch (err) {
+            showMessage("Gagal Menyalin", "Gagal menyalin. Silakan salin teks secara manual.");
+            console.error('Gagal menyalin:', err);
+        }
+    }
+
+    /** Menangani perubahan pada input file */
+    fileInput.addEventListener('change', (event) => {
+        const file = event.target.files[0];
+
+        if (file) {
+            // Perbarui status file
+            fileStatus.textContent = `File terpilih: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`;
+
+            // Inisiasi FileReader API
+            const reader = new FileReader();
+
+            // Ketika file selesai dibaca
+            reader.onload = function (e) {
+                const base64DataUrl = e.target.result;
+
+                // Tampilkan area output
+                outputArea.classList.remove('hidden');
+
+                // 1. Tampilkan string Base64 di textarea
+                base64Output.value = base64DataUrl;
+
+                // 2. Tampilkan pratinjau gambar menggunakan string Data URL
+                imagePreview.src = base64DataUrl;
+
+                console.log('Konversi berhasil! String Base64:', base64DataUrl.substring(0, 50) + '...');
+            };
+
+            // Tambahkan penanganan error jika pembacaan gagal
+            reader.onerror = function () {
+                showMessage("Kesalahan", "Gagal membaca file.");
+                fileStatus.textContent = 'Gagal membaca file. Silakan coba lagi.';
+                base64Output.value = '';
+                imagePreview.src = '';
+                outputArea.classList.add('hidden');
+            };
+
+            // Baca file sebagai Data URL
+            reader.readAsDataURL(file);
+        } else {
+            // Bersihkan output jika tidak ada file
+            fileStatus.textContent = 'Klik untuk memilih atau seret & lepas gambar di sini (JPG, PNG, GIF)';
+            base64Output.value = '';
+            imagePreview.src = '';
+            outputArea.classList.add('hidden');
+        }
+    });
+</script>
+
+</body>
+</html>
